@@ -81,7 +81,7 @@ class SearchHandler(tornado.web.RequestHandler):
             journal = item.xpath('div[@class="sc_content"]/div[@class="sc_info"]/a[1]/@title')[0].strip('《').strip('》')
             year = item.xpath('div[@class="sc_content"]/div[@class="sc_info"]/span[2]/text()')[0]
             key_words = item.xpath('div[@class="sc_content"]/div[@class="c_abstract"]/p/span/a/text()')
-            cite_num = item.xpath('div[@class="sc_ext"]/div[@class="sc_cite"]/a/span[@class="sc_cite_num c-gray"]/text()')[0]
+            cite_num = item.xpath('div[@class="sc_ext"]/div[@class="sc_cite"]//span[@class="sc_cite_num c-gray"]/text()')[0]
 
             paper = Paper()
             paper.title = title
