@@ -8,6 +8,7 @@ from urlparse import urljoin
 import tornado.ioloop
 import tornado.web
 import tornado.httpclient
+import tornado.httpserver
 
 
 class Paper(object):
@@ -110,22 +111,23 @@ class SearchHandler(tornado.web.RequestHandler):
             self.render('search_result.html', papers=self.papers)
         # self.finish()
 
-
-settings = {
-    'cookie_secret': "61oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo=",
-    'login_url': '/login',
-    # 'xsrf_cookies': True,
-    'static_path': os.path.join(os.path.dirname(__file__), 'static'),
-    'debug': True,
-}
-
-app = tornado.web.Application([
-    (r'/', MainHandler), 
-    (r'/login', LoginHandler),
-    (r'/async', AsyncHandler),
-    (r'/search', SearchHandler),
-], **settings)
-
 if __name__ == '__main__':
-    app.listen(8888)
+    settings = {
+        'cookie_secret': "61oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo=",
+        'login_url': '/login',
+        # 'xsrf_cookies': True,
+        'static_path': os.path.join(os.path.dirname(__file__), 'static'),
+        'debug': True,
+    }
+
+    app = tornado.web.Application([
+        (r'/', MainHandler), 
+        (r'/login', LoginHandler),
+        (r'/async', AsyncHandler),
+        (r'/search', SearchHandler),
+    ], **settings)
+
+    http_server = tornado.httpserver.HTTPServer(app)
+    port = int(os.environ.get("PORT", 5000))
+    http_server.listen(port)
     tornado.ioloop.IOLoop.instance().start()
