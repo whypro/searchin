@@ -1,0 +1,14 @@
+{% for paper in papers %}
+{{ paper.title }}
+{{ paper.url }}
+{% for author in paper.authors %}
+{{ author }}
+{% end %}
+{{ paper.journal }}
+{{ paper.year }}
+{% for key_word in paper.key_words %}
+{{ key_word }}
+{% end %}
+{{ paper.cite_num }}
+<br />
+{% end %}
