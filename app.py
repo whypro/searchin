@@ -94,12 +94,12 @@ class SearchHandler(tornado.web.RequestHandler):
 
             self.papers.append(paper)
 
-            print 'title', title
-            print 'url', url
-            print 'authors', authors
-            print 'journal', journal
-            print 'year', year
-            print 'key_words', key_words
+            # print 'title', title
+            # print 'url', url
+            # print 'authors', authors
+            # print 'journal', journal
+            # print 'year', year
+            # print 'key_words', key_words
 
         if self.page <= self.max_page:
             next_page = tree.xpath('//p[@id="page"]/a[last()]/@href')[0]
