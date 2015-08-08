@@ -1,45 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import os
 from lxml import etree
 from StringIO import StringIO
 from urlparse import urljoin
 
-import tornado.ioloop
 import tornado.web
 import tornado.httpclient
-import tornado.httpserver
 
-
-class Paper(object):
-
-    def __init__(self):
-        pass
-
-
-class MainHandler(tornado.web.RequestHandler):
-    @tornado.web.authenticated
-    def get(self):
-        name = self.current_user
-        self.render('index.html', name=name)
-
-    def get_current_user(self):
-        return self.get_secure_cookie('user')
-
-
-class LoginHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.render('login.html')
-
-    def post(self):
-        self.set_secure_cookie('user', self.get_argument('name'))
-        self.redirect('/')
-
-class AsyncHandler(tornado.web.RequestHandler):
-    @tornado.web.asynchronous
-    def get(self):
-        self.write('async')
-        self.finish()
+from ..models import Paper
 
 
 class SearchHandler(tornado.web.RequestHandler):
@@ -111,23 +79,3 @@ class SearchHandler(tornado.web.RequestHandler):
             self.render('search_result.html', papers=self.papers)
         # self.finish()
 
-if __name__ == '__main__':
-    settings = {
-        'cookie_secret': "61oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo=",
-        'login_url': '/login',
-        # 'xsrf_cookies': True,
-        'static_path': os.path.join(os.path.dirname(__file__), 'static'),
-        'debug': True,
-    }
-
-    app = tornado.web.Application([
-        (r'/', MainHandler), 
-        (r'/login', LoginHandler),
-        (r'/async', AsyncHandler),
-        (r'/search', SearchHandler),
-    ], **settings)
-
-    http_server = tornado.httpserver.HTTPServer(app)
-    port = int(os.environ.get("PORT", 5000))
-    http_server.listen(port)
-    tornado.ioloop.IOLoop.instance().start()
