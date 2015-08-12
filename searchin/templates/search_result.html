@@ -1,3 +1,4 @@
+{% if len(papers) %}
 {% for paper in papers %}
 {{ paper.title }}
 {{ paper.url }}
@@ -11,4 +12,7 @@
 {% end %}
 {{ paper.cite_num }}
 <br />
+{% end %}
+{% else %}
+未找到相关文献
 {% end %}

@@ -3,21 +3,29 @@ from __future__ import unicode_literals
 from lxml import etree
 from StringIO import StringIO
 from urlparse import urljoin
+from collections import defaultdict
 
 import tornado.web
 import tornado.httpclient
+import tornado.gen
 
 from ..models import Paper
 
 
 class SearchHandler(tornado.web.RequestHandler):
 
-    page = 0
+    def __init__(self, application, request, **kwargs):
+
+        self.page = defaultdict(int)
+        self.papers = []
+        self.max_page = 0
+
+        tornado.web.RequestHandler.__init__(self, application, request, **kwargs)
 
     def get(self):
         self.render('search.html')
 
-    @tornado.web.asynchronous
+    @tornado.gen.coroutine
     def post(self):
         self.papers = []
         key = self.get_argument('key')
@@ -25,17 +33,35 @@ class SearchHandler(tornado.web.RequestHandler):
         self.max_page = int(page)
         http = tornado.httpclient.AsyncHTTPClient()
         url_template = 'http://xueshu.baidu.com/s?wd={key}&rsv_bp=0&tn=SE_baiduxueshu_c1gjeupa&ie=utf-8'
-        http.fetch(
-            url_template.format(key=key),
-            callback=self._on_response
-        )
+        # response = yield tornado.gen.Task(http.fetch, url_template.format(key=key))
+        response = yield http.fetch(url_template.format(key=key))
+        self.parse_html(response)
 
+        result = self.load_papers(key)
+        papers = [Paper(**p) for p in result]
+        # papers_json = tornado.escape.json_encode('{"哈哈": "你好"}')
+        # self.write(papers_json)
+        # self.finish()
+        self.render('search_result.html', papers=papers)
 
-    def _on_response(self, response):
+    @tornado.gen.coroutine
+    def parse_html(self, response):
         parser = etree.HTMLParser()
         tree = etree.parse(StringIO(response.body), parser)
+        areas = tree.xpath('//div[@class="leftnav_list leftnav_list_show"]/div/a')
+        for area in areas:
+            title = area.xpath('@title')[0].strip()
+            href = area.xpath('@href')[0]
+            http = tornado.httpclient.AsyncHTTPClient()
+            response = yield http.fetch(urljoin('http://xueshu.baidu.com', href))
+            self.parse_papers(response, title)
+
+    @tornado.gen.coroutine
+    def parse_papers(self, response, area):
+        parser = etree.HTMLParser()
+        tree = etree.parse(StringIO(response.body), parser)
+
         items = tree.xpath('//div[@class="result xpath-log"]')
-        
 
         for item in items:
             # 标题 和 URL
@@ -59,6 +85,8 @@ class SearchHandler(tornado.web.RequestHandler):
             paper.year = year
             paper.key_words = key_words
             paper.cite_num = cite_num
+            paper.click_num = 0
+            paper.area = area
 
             self.papers.append(paper)
 
@@ -69,13 +97,23 @@ class SearchHandler(tornado.web.RequestHandler):
             # print 'year', year
             # print 'key_words', key_words
 
-        if self.page <= self.max_page:
+        if self.page[area] <= self.max_page:
+            self.page[area] += 1
             next_page = tree.xpath('//p[@id="page"]/a[last()]/@href')[0]
             url = urljoin(response.effective_url, next_page)
             http = tornado.httpclient.AsyncHTTPClient()
-            http.fetch(url, callback=self._on_response)
-            self.page += 1
+            response = yield http.fetch(url)
+            self.parse_papers(response, area)
         else:
-            self.render('search_result.html', papers=self.papers)
-        # self.finish()
+            self.save_papers(self.papers)
+            print area, self.page[area]
+
+    def save_papers(self, papers):
+        for paper in papers:
+            self.application.db.papers.update_one({'url': paper.url}, {'$set': paper.__dict__}, upsert=True)
+
+    def load_papers(self, key):
+        papers = self.application.db.papers.find({'title': {'$regex': key}})
+        print papers.count()
+        return papers
 
