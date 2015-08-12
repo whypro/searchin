@@ -3,7 +3,7 @@
 from bae.core.wsgi import WSGIApplication
 import tornado.wsgi
 
-from searchin import Application
+from searchin.application import Application
 
 app = Application()
 wsgi_app = tornado.wsgi.WSGIAdapter(app)
