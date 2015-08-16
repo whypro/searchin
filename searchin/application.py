@@ -22,7 +22,7 @@ class Application(tornado.web.Application):
             'template_path': os.path.join(os.path.dirname(__file__), 'templates'),
             'static_path': os.path.join(os.path.dirname(__file__), 'static'),
             'debug': True,
-            'db_host': '192.168.7.118',
+            'db_host': '192.168.7.103',
             'db_port': 27017,
             'db_name': 'searchin'
         }
