@@ -1,1 +1,1 @@
-from .search import SearchHandler
+from .search import PaperSearchHandler, BookSearchHandler

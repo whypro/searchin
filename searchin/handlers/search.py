@@ -10,10 +10,10 @@ import tornado.web
 import tornado.httpclient
 import tornado.gen
 
-from ..models import Paper
+from ..models import Paper, Book
 
 
-class SearchHandler(tornado.web.RequestHandler):
+class PaperSearchHandler(tornado.web.RequestHandler):
 
     def __init__(self, application, request, **kwargs):
 
@@ -64,7 +64,7 @@ class SearchHandler(tornado.web.RequestHandler):
             title = area.xpath('@title')[0].strip()
             href = area.xpath('@href')[0]
             http = tornado.httpclient.AsyncHTTPClient()
-            response = yield http.fetch(urljoin('http://xueshu.baidu.com', href))
+            response = yield http.fetch(urljoin('http://xueshu.baidu.com/', href))
             self.parse_papers(response, title)
 
     @tornado.gen.coroutine
@@ -128,4 +128,75 @@ class SearchHandler(tornado.web.RequestHandler):
         papers = self.application.db.papers.find({'title': {'$regex': key}}, {'_id': False})
         print papers.count()
         return papers
+
+
+class BookSearchHandler(tornado.web.RequestHandler):
+
+    def __init__(self, application, request, **kwargs):
+        self.books = []
+
+        tornado.web.RequestHandler.__init__(self, application, request, **kwargs)
+
+    def get(self):
+        self.render('search.html')
+
+    @tornado.gen.coroutine
+    def post(self):
+        key = self.get_argument('key')
+        page = self.get_argument('page')
+
+        http = tornado.httpclient.AsyncHTTPClient()
+        url_template = 'http://61.150.69.38:8080/opac/openlink.php?strSearchType=title&match_flag=forward&historyCount=1&strText={key}&doctype=ALL&with_ebook=on&displaypg=100&showmode=table&sort=CATA_DATE&orderby=desc&dept=ALL'
+        # response = yield tornado.gen.Task(http.fetch, url_template.format(key=key))
+        response = yield http.fetch(url_template.format(key=key))
+        self.parse_html(response)
+
+        # 将搜索关键词插入数据库
+        self.application.db.queries.update_one({'key': key}, {'$inc': {'count': 1}}, upsert=True)
+
+        books_cursor = self.load_books(key)
+        books_dict = [b for b in books_cursor]
+        result_dict = {'key': key, 'count': len(books_dict), 'books': books_dict}
+        result_json = json.dumps(result_dict, ensure_ascii=False, encoding='utf-8')
+        self.set_header('Content-Type', 'application/javascript; charset=utf-8')
+        self.write(result_json)
+        self.finish()
+
+    @tornado.gen.coroutine
+    def parse_html(self, response):
+        parser = etree.HTMLParser()
+        tree = etree.parse(StringIO(response.body), parser)
+
+        items = tree.xpath('//table[@id="result_content"]/tr[@bgcolor="#FFFFFF"]')
+        for item in items:
+            href = item.xpath('td[2]/a/@href')[0]
+            # print urljoin('http://61.150.69.38:8080/opac/', href)
+            http = tornado.httpclient.AsyncHTTPClient()
+            response = yield http.fetch(urljoin('http://61.150.69.38:8080/opac/', href))
+            self.parse_books(response)
+
+    @tornado.gen.coroutine
+    def parse_books(self, response):
+        parser = etree.HTMLParser()
+        tree = etree.parse(StringIO(response.body), parser)
+
+        isbn = tree.xpath('//div[@id="item_detail"]/dl[3]/dd/text()')[0].split('/')[0].split(' ')[0]
+        # print isbn
+        http = tornado.httpclient.AsyncHTTPClient()
+        url_template = 'https://api.douban.com/v2/book/isbn/{isbn}'
+        response = yield http.fetch(url_template.format(isbn=isbn))
+        # print response.body
+        book_dict = json.loads(response.body, encoding='utf-8')
+        book_dict['douban_id'] = book_dict.pop('id')
+        self.save_books([Book(**book_dict)])
+
+    def save_books(self, books):
+        for book in books:
+            self.application.db.books.update_one({'douban_id': book.douban_id}, {'$set': book.__dict__}, upsert=True)
+
+    def load_books(self, key):
+        books = self.application.db.books.find({'title': {'$regex': key}}, {'_id': False})
+        print books.count()
+        return books
+
 
