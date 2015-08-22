@@ -5,13 +5,14 @@ from pymongo import MongoClient
 
 import tornado.web
 
-from .handlers import PaperSearchHandler, BookSearchHandler
+from .handlers import HomeHandler, PaperSearchHandler, BookSearchHandler
 
 
 class Application(tornado.web.Application):
     def __init__(self):
 
         handlers = [
+            (r'/', HomeHandler),
             (r'/paper/search', PaperSearchHandler),
             (r'/book/search', BookSearchHandler),
         ]
